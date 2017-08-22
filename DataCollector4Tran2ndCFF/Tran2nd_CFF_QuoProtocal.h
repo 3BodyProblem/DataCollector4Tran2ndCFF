@@ -86,14 +86,14 @@ typedef struct
 {
 	unsigned int				Price;						///< 委托价格[* 放大倍数]
 	unsigned __int64			Volume;						///< 委托量[股]
-} tagSHOptBuySellItem;
+} tagCFFBuySellItem;
 
 
 typedef struct
 {
 	char						Code[20];					///< 合约代码
-	tagSHOptBuySellItem			Buy[5];						///< 买五档
-	tagSHOptBuySellItem			Sell[5];					///< 卖五档
+	tagCFFBuySellItem			Buy[5];						///< 买五档
+	tagCFFBuySellItem			Sell[5];					///< 卖五档
 } tagCFFFutureSnapBuySell_HF178;
 
 

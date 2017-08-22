@@ -311,7 +311,7 @@ void Quotation::OnPushMarketInfo(const char *buf, size_t len)
 
 void Quotation::OnPushStock(const char * buf, size_t InSize)
 {
-	tagCcComm_CffexStockDataEx*		stock = (tagCcComm_CffexStockDataEx*)buf;
+	tagCcComm_CffexStockData*		stock = (tagCcComm_CffexStockData*)buf;
 	tagCFFFutureSnapData_LF176		tagStockLF = { 0 };
 	tagCFFFutureSnapData_HF177		tagStockHF = { 0 };
 	tagCFFFutureSnapBuySell_HF178	tagStockBS = { 0 };
@@ -355,7 +355,7 @@ void Quotation::OnInnerPush( unsigned char MainType, unsigned char ChildType, co
 		return;
 	}
 
-	if( ChildType == 105 )
+	if( ChildType == 103 )
 	{
         while( offset < InSize )
         {
@@ -376,7 +376,7 @@ void Quotation::OnInnerPush( unsigned char MainType, unsigned char ChildType, co
                 break;
             case 1:
                 OnPushStock(InBuf+offset, 0);
-                offset += sizeof( tagCcComm_CffexStockDataEx );
+                offset += sizeof( tagCcComm_CffexStockData );
                 break;
             default:
                 return;
@@ -388,32 +388,26 @@ void Quotation::OnInnerPush( unsigned char MainType, unsigned char ChildType, co
 
 void Quotation::OnPush( unsigned char MainType, unsigned char ChildType, const char *InBuf, unsigned short InSize, unsigned char Marketid, unsigned short UnitNo, bool SendDirectFlag )
 {
-    if( Marketid == 16 && MainType ==2 )
-    {
-        if( ChildType == 9 || ChildType == 59 )
-        {
-            char inbuf[16 * 1024] = {0};
-            assert(InSize < sizeof inbuf);
-            memcpy(inbuf, InBuf, InSize);
+    char inbuf[16 * 1024] = {0};
+    assert(InSize < sizeof inbuf);
+    memcpy(inbuf, InBuf, InSize);
 
-            if( SendDirectFlag )
-            {
-                char output[16*1024]={0};
-                char *pszCurrentPosPt =NULL;
-                //解压一下
-                int rv = MVPlatIO::RestoreDataFrame(inbuf, InSize, &pszCurrentPosPt, output, 16*1024);
-                if (rv <=0)
-                {
-                    return;
-                }
-				QuoCollector::GetCollector().GetQuoObj().OnInnerPush(MainType, ChildType, pszCurrentPosPt+sizeof(tagComm_FrameHead), rv- sizeof(tagComm_FrameHead), Marketid);
-            }
-            else
-            {
-				QuoCollector::GetCollector().GetQuoObj().OnInnerPush(MainType, ChildType, inbuf, InSize, Marketid);
-            }
+    if( SendDirectFlag )
+    {
+        char output[16*1024]={0};
+        char *pszCurrentPosPt =NULL;
+        //解压一下
+        int rv = MVPlatIO::RestoreDataFrame(inbuf, InSize, &pszCurrentPosPt, output, 16*1024);
+        if (rv <=0)
+        {
+            return;
         }
-	}
+		QuoCollector::GetCollector().GetQuoObj().OnInnerPush(MainType, ChildType, pszCurrentPosPt+sizeof(tagComm_FrameHead), rv- sizeof(tagComm_FrameHead), Marketid);
+    }
+    else
+    {
+		QuoCollector::GetCollector().GetQuoObj().OnInnerPush(MainType, ChildType, inbuf, InSize, Marketid);
+    }
 }
 
 
