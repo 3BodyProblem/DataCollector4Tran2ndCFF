@@ -8,6 +8,7 @@
 #include <string>
 #include <stdexcept>
 #include "L2Dll.h"
+#include "DataDump.h"
 #include "../Configuration.h"
 #include "../Infrastructure/Lock.h"
 #include "../Infrastructure/Thread.h"
@@ -118,7 +119,7 @@ public:///< 公共方法函数
 private:
 	CriticalObject		m_oLock;				///< 临界区对象
 	WorkStatus			m_oWorkStatus;			///< 工作状态
-	L2Dll				m_oSHOPTDll;				///< 深圳传输模块管理对象
+	L2Dll				m_oSHOPTDll;			///< 深圳传输模块管理对象
 	char*				m_pDataBuff;			///< 数据临时缓存
 };
 
