@@ -74,6 +74,10 @@ WorkStatus&	WorkStatus::operator= ( enum E_SS_Status eWorkStatus )
 ///< ----------------------------------------------------------------
 
 
+T_MAP_RATE		Quotation::m_mapRate;
+T_MAP_KIND		Quotation::m_mapKind;
+
+
 Quotation::Quotation()
  : m_pDataBuff( NULL )
 {
@@ -195,34 +199,17 @@ int Quotation::BuildImageData()
 		return -2;
 	}
 
+	m_mapRate.clear();
+	m_mapKind.clear();
 	::strcpy( tagMkStatus.Key, "status" );
 	tagMkStatus.StatusFlag[0] = tagHead.MarketStatus==0?'0':'1';
 	tagMkStatus.MarketTime = tagHead.Time;
 	QuoCollector::GetCollector()->OnImage( 174, (char*)&tagMkStatus, sizeof(tagCFFFutureMarketStatus_HF174), false );
 
 	::strcpy( tagMkInfo.Key, "mkinfo" );
-	tagMkInfo.KindCount = tagHead.KindCount;
 	tagMkInfo.MarketDate = tagHead.Date;
 	tagMkInfo.MarketID = Configuration::GetConfig().GetMarketID();
-	::memcpy( &(tagMkInfo.MarketPeriods), &(tagHead.Periods), sizeof(tagHead.Periods) );
-	tagMkInfo.PeriodsCount = tagHead.PeriodsCount;
 	tagMkInfo.WareCount = tagHead.WareCount;
-	QuoCollector::GetCollector()->OnImage( 172, (char*)&tagMkInfo, sizeof(tagCFFFutureMarketInfo_LF172), false );
-
-	for( int i = 0 ; i < tagMkInfo.KindCount; i++ )
-	{
-		char							pszKey[12] = { 0 };
-		tagCFFFutureKindDetail_LF173	tagCategory = { 0 };
-
-		::sprintf( pszKey, "%d", i );
-		::strcpy( tagCategory.Key, pszKey );
-		::strncpy( tagCategory.KindName, tagDetail[i].KindName, sizeof(tagDetail[i].KindName) );
-		tagCategory.LotSize = tagDetail[i].LotSize;
-		tagCategory.PriceRate = tagDetail[i].PriceRate;
-		tagCategory.WareCount = tagDetail[i].WareCount;
-
-		QuoCollector::GetCollector()->OnImage( 173, (char*)&tagCategory, sizeof(tagCFFFutureKindDetail_LF173), false );
-	}
 
 	tagCcComm_CffexNameTable*	pTable = (tagCcComm_CffexNameTable*)m_pDataBuff;
 	if( (nErrCode = m_oSHOPTDll.GetNameTable( 0, pTable, tagHead.WareCount )) < 0 )
@@ -233,25 +220,50 @@ int Quotation::BuildImageData()
 
 	for( int i = 0; i < tagHead.WareCount; ++i )
 	{
+		std::string							sCodeKey( pTable[i].ObjectCode, 6 );
+
+		if( m_mapKind.find( sCodeKey ) == m_mapKind.end() )
+		{
+			tagCFFFutureKindDetail_LF173&	refKind = m_mapKind[sCodeKey];
+
+			::memset( &refKind, 0, sizeof(refKind) );
+			::sprintf( refKind.Key, "%u", m_mapKind.size()-1 );
+			::strncpy( refKind.KindName, pTable[i].ObjectCode, 6 );
+			::strncpy( refKind.UnderlyingCode, pTable[i].ObjectCode, 6 );
+			refKind.PriceRate = 2;
+			refKind.LotSize = 1;
+			refKind.LotFactor = 100;
+			refKind.ContractMult = pTable[i].ContractMult;
+			::memcpy( &(refKind.MarketPeriods), &(tagHead.Periods), sizeof(tagHead.Periods) );
+			refKind.PeriodsCount = tagHead.PeriodsCount;
+
+			m_mapRate[::atoi(refKind.Key)] = refKind.PriceRate;
+			QuoCollector::GetCollector()->OnImage( 173, (char*)&refKind, sizeof(tagCFFFutureKindDetail_LF173), true );
+		}
+
 		tagCFFFutureReferenceData_LF175	tagRef = { 0 };
 
 		::strncpy( tagRef.Code, pTable[i].Code, sizeof(pTable[i].Code) );
-		//tagRef.ContractUnit
-		tagRef.ContractMult = pTable[i].ContractMult;
 		//tagRef.DeliveryDate = pTable[i].DeliveryDate;
 		//tagRef.EndDate = pTable[i].EndDate;
 		//tagRef.ExpireDate = pTable[i].ExpireDate;
-		tagRef.Kind = pTable[i].Type;
+		T_MAP_KIND::iterator it = m_mapKind.find( sCodeKey );
+		if( it != m_mapKind.end() )
+		{
+			tagRef.Kind = ::atoi( it->second.Key );
+		}
 		//tagRef.LotSize = pTable[i].LotSize;
 		::strncpy( tagRef.Name, pTable[i].Name, sizeof(pTable[i].Name) );
 		//tagRef.StartDate = pTable[i].StartDate;
 		//::strncpy( tagRef.StatusFlag, pTable[i].StatusFlag, sizeof(pTable[i].StatusFlag) );
-		::strncpy( tagRef.UnderlyingCode, pTable[i].ObjectCode, sizeof(pTable[i].ObjectCode) );
 		//tagRef.XqDate = pTable[i].XqDate;
 		//tagRef.XqPrice = pTable[i].XqPrice;
 
 		QuoCollector::GetCollector()->OnImage( 175, (char*)&tagRef, sizeof(tagCFFFutureReferenceData_LF175), false );
 	}
+
+	tagMkInfo.KindCount = tagHead.KindCount;
+	QuoCollector::GetCollector()->OnImage( 172, (char*)&tagMkInfo, sizeof(tagCFFFutureMarketInfo_LF172), false );
 
 	//5,获取个股快照
 	tagCcComm_CffexStockDataEx*	pStock = (tagCcComm_CffexStockDataEx*)m_pDataBuff;
